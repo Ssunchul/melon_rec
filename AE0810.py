@@ -15,8 +15,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim 
 import torch.nn.functional as F
-
-torch.cuda.is_available()
+import os
+print(torch.__version__)
+#os.environ["CUDA_VISIBLE_DEVICES"]='2'
+#CUDA_VISIBLE_DEVICE=3
 #torch.cuda.device(3)
 #torch.cuda.get_device_name(3)
 def write_json(data, fname):
@@ -169,7 +171,7 @@ j=1
 print(j)
 
 x_train_song = train_songs_A_csr
-batch_size=4
+batch_size=1
 epochs=1
 original_dim= n_songs # number of songs
 
@@ -180,8 +182,8 @@ class AE(nn.Module):
     def __init__(self,original_dim):
         super(AE,self).__init__()
         self.fc1=nn.Linear(original_dim,2048)
-        self.fc2=nn.Linear(2048,512)
-        self.fc3=nn.Linear(512,2048)
+        #self.fc2=nn.Linear(2048,512)
+        #self.fc3=nn.Linear(512,2048)
         self.fc4=nn.Linear(2048,original_dim)
     def forward(self,x):
         x=F.relu(self.fc1(x))
@@ -190,8 +192,8 @@ class AE(nn.Module):
         out=F.relu(self.fc4(x))
         return torch.sigmoid(out)
 
-model=AE(original_dim)
-
+model=AE(original_dim).cuda()
+model=nn.DataParallel(model)
 def init_weights(m):
     if type(m) == nn.Linear:
         torch.nn.init.kaiming_uniform_(m.weight)
@@ -218,7 +220,7 @@ def weighted_binary_cross_entropy(output, target, weights=None):
 weight = torch.tensor([WT,1])
 
 
-optimizer=optim.Adam(model.parameters(),lr=0.01)   
+optimizer=optim.Adam(model.parameters(),lr=0.01)  
 
 j=1
 print(j)
@@ -236,7 +238,7 @@ def train(model,x_train_song,epochs):
         index_batch = range(x_train_song.shape[0])[batch_size*i:batch_size*(i+1)]       
         X_batch = x_train_song[index_batch,:].toarray().astype("float32")
         X_batch=torch.from_numpy(X_batch)
-        X_batch.requires_grad_(True)
+        X_batch.requires_grad_(True) 
         
         #
         optimizer.zero_grad()
@@ -274,7 +276,7 @@ plt.savefig("song.png")
 
 
 x_train_tag = train_tags_A_csr
-batch_size=4
+batch_size=1
 epochs=1
 original_dim= n_tags # number of tags
 
@@ -292,7 +294,8 @@ class AE_tag(nn.Module):
         x=F.relu(self.fc3(x))
         x=F.relu(self.fc4(x))
         return torch.sigmoid(x)
-model2=AE_tag(original_dim)
+model2=AE_tag(original_dim).cuda()
+model2=nn.DataParallel(model2)
 model2.apply(init_weights)
 print(model2)
 
